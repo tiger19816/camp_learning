@@ -24,6 +24,7 @@ public class BPMap<Key extends Comparable<? super Key>, Value> {
 		public List<Key> ks() {
 			return null;
 		}
+
 		/**
 		 * 枝のリスト
 		 */
@@ -57,7 +58,8 @@ public class BPMap<Key extends Comparable<? super Key>, Value> {
 	/**
 	 * nullの代わり。
 	 */
-	private final NodeBottom nil = nwe NodeBottom();
+	private final NodeBottom nil = new NodeBottom();
+
 	/**
 	 * B+木の根(nilは空の木)
 	 */
@@ -96,9 +98,6 @@ public class BPMap<Key extends Comparable<? super Key>, Value> {
 
 		/**
 		 * コンストラクタ
-		 * @param key
-		 * @param l
-		 * @param r
 		 */
 		public NodeActive(Key key, Node l, Node r) {
 			ks.add(key);
@@ -106,10 +105,12 @@ public class BPMap<Key extends Comparable<? super Key>, Value> {
 			ns.add(r);
 		}
 
+		@Override
 		public List<Key> ks() {
 			return ks;
 		}
 
+		@Override
 		public List<Node> ns() {
 			return ns;
 		}
@@ -117,6 +118,7 @@ public class BPMap<Key extends Comparable<? super Key>, Value> {
 		/**
 		 * アクティブなノードを内部ノードに変換する
 		 */
+		@Override
 		public Node deactivate() {
 			return new NodeInterior(ks.get(0), ns.get(0), ns.get(1));
 		}
@@ -149,10 +151,12 @@ public class BPMap<Key extends Comparable<? super Key>, Value> {
 			ns.add(r);
 		}
 
+		@Override
 		public List<Key> ks() {
 			return ks;
 		}
 
+		@Override
 		public List<Node> ns() {
 			return ns;
 		}
@@ -160,13 +164,19 @@ public class BPMap<Key extends Comparable<? super Key>, Value> {
 		/**
 		 * 枝が一本の余分なノードを切り詰める
 		 */
+		@Override
 		public Node trim() {
 			return ns.size() == 1 ? ns.get(0) : this;
 		}
 
+        //=====================================================================
+        // 内部ノードでの挿入
+        //=====================================================================
+
 		/**
 		 * 木 this にキー key で value を挿入する
 		 */
+		@Override
 		public Node insert(Key key, Value value) {
 			int i;
 			for(i = 0; i < ks.size(); i++) {
@@ -193,7 +203,7 @@ public class BPMap<Key extends Comparable<? super Key>, Value> {
 			}
 			ks.add(i, ni.ks().get(0));
 			ns.set(i, ni.ns().get(1));
-			ns.set(i, ni.ns().get(0));
+			ns.add(i, ni.ns().get(0));
 			return ks.size() < m ? this : split();
 		}
 
@@ -212,10 +222,15 @@ public class BPMap<Key extends Comparable<? super Key>, Value> {
 			return new NodeActive(l.ks.remove(i), l, r);
 		}
 
+        //=====================================================================
+        // 内部ノードでの削除
+        //=====================================================================
+
 		/**
 		 * 木 this からキー key のノードを削除する
 		 */
-		public void delste(Key key) {
+		@Override
+		public void delete(Key key) {
 			int i;
 			for(i = 0; i < ks.size(); i++) {
 				int compare = key.compareTo(ks.get(i));
@@ -236,6 +251,7 @@ public class BPMap<Key extends Comparable<? super Key>, Value> {
 		 * 部分木 this の最小値キーを削除する
 		 * @return 部分木 this の当たらな最小値キー
 		 */
+		@Override
 		public Key deleteMin() {
 			Key nmin = ns.get(0).deleteMin();
 			Key spare = ks.get(0);
@@ -246,6 +262,7 @@ public class BPMap<Key extends Comparable<? super Key>, Value> {
 		/**
 		 * 左部分木での削除時のバランス調整
 		 */
+		@Override
 		public void balanceLeft(NodeInterior t, int i) {
 			NodeInterior ni = this;
 			if(ni.ns.size() >= hm) {
@@ -269,6 +286,7 @@ public class BPMap<Key extends Comparable<? super Key>, Value> {
 		/**
 		 * 右部分木での削除時のバランス調整
 		 */
+		@Override
 		public void balanceRight(NodeInterior t, int j) {
 			NodeInterior nj = this;
 			if(nj.ns.size() >= hm) {
@@ -310,5 +328,579 @@ public class BPMap<Key extends Comparable<? super Key>, Value> {
 		}
 	}
 
+	/**
+	 * 最下層のノードの型
+	 */
+	private class NodeBottom extends Node {
+		/**
+		 * キーのリスト
+		 */
+		private List<Key> ks = new ArrayList<Key>(m);
+		/**
+		 * 値のリスト
+		 */
+		private List<Value> vs = new ArrayList<Value>(m);
+		/**
+		 * 右隣の最下層のノード
+		 */
+		private NodeBottom next = nil;
 
+		/**
+		 * コンストラクタ
+		 */
+		public NodeBottom() {}
+
+		/**
+		 * コンストラクタ
+		 */
+		public NodeBottom(Key key, Value value) {
+			ks.add(key);
+			vs.add(value);
+		}
+
+		@Override
+		public List<Key> ks() {
+			return ks;
+		}
+
+		/**
+		 * キーも枝もないノードを空の木(nil)に変換する
+		 */
+		@Override
+		public Node trim() {
+			return ks.size() == 0 ? nil : this;
+		}
+
+        //=====================================================================
+        // 最下層のノードでの挿入
+        //=====================================================================
+
+		/**
+		 * 木 this にキー key で値 x を挿入する
+		 */
+		@Override
+		public Node insert(Key key, Value value) {
+			if(this == nil) {
+				return new NodeBottom(key, value);
+			}
+			int i;
+			for(i = 0; i < ks.size(); i++) {
+				int compare = key.compareTo(ks.get(i));
+				if(compare < 0) {
+					return balance(i, key, value);
+				} else if(compare == 0) {
+					vs.set(i, value);
+					return this;
+				}
+			}
+			return balance(i, key, value);
+		}
+
+		/**
+		 * 挿入時のバランス調整
+		 */
+		public Node balance(int i, Key key, Value value) {
+			ks.add(i, key);
+			vs.add(i, value);
+			return ks.size() < m ? this : split();
+		}
+
+		/**
+		 * 要素数が m のノードを分割してアクティブなノードに変換する
+		 */
+		public Node split() {
+			int j = hm - 1;
+			NodeBottom l = this;
+			NodeBottom r = new NodeBottom();
+			r.ks.addAll(l.ks.subList(j, m));
+			r.vs.addAll(l.vs.subList(j, m));
+			l.ks.subList(j, m).clear();
+			l.vs.subList(j, m).clear();
+			r.next = l.next;
+			l.next = r;
+			return new NodeActive(r.ks.get(0), l, r);
+		}
+
+        //=====================================================================
+        // 最下層のノードでの削除
+        //=====================================================================
+
+		/**
+		 * 木 this からキー key のノードを削除する
+		 */
+		@Override
+		public void delete(Key key) {
+			for(int i = 0; i < ks.size(); i++) {
+				int compare = key.compareTo(ks.get(i));
+				if(compare < 0) {
+					return;
+				} else if(compare == 0) {
+					ks.remove(i);
+					vs.remove(i);
+					return;
+				}
+			}
+		}
+
+		/**
+		 * 部分木 this の最小値キーを削除する
+		 * @return 部分木 this の新たな最小値キーを返す。空になったら null を返す
+		 */
+		@Override
+		public Key deleteMin() {
+			ks.remove(0);
+			vs.remove(0);
+			return !ks.isEmpty() ? ks.get(0) : null;
+		}
+
+		/**
+		 * 左部分木での削除時のバランス調整
+		 */
+		@Override
+		public void balanceLeft(NodeInterior t, int i) {
+			NodeBottom ni = this;
+			if(ni.ks.size() >= hm - 1) {
+				return;
+			}
+			int j = i + 1;
+			NodeBottom nj = (NodeBottom) t.ns.get(j);
+			if(nj.ks.size() == hm - 1) {
+				ni.ks.addAll(nj.ks);
+				ni.vs.addAll(nj.vs);
+				t.ks.remove(i);
+				t.ns.remove(j);
+				ni.next = nj.next;
+			} else {
+				t.ks.set(i, moveRL(ni, nj));
+			}
+		}
+
+		/**
+		 * 右部分木での削除時のバランス調整
+		 */
+		@Override
+		public void balanceRight(NodeInterior t, int j) {
+			NodeBottom nj = this;
+			if(nj.ks.size() >= hm - 1) {
+				return;
+			}
+			int i = j - 1;
+			NodeBottom ni = (NodeBottom) t.ns.get(j);
+			if(ni.ks.size() == hm - 1) {
+				ni.ks.addAll(nj.ks);
+				ni.vs.addAll(nj.vs);
+				t.ks.remove(i);
+				t.ns.remove(j);
+				ni.next = nj.next;
+			} else {
+				t.ks.set(i, moveLR(ni, nj));
+			}
+		}
+
+		/**
+		 * 余裕のある右ノードから枝を1本分けてもらう
+		 */
+		public Key moveRL(NodeBottom l, NodeBottom r) {
+			l.ks.add(r.ks.remove(0));
+			l.vs.add(r.vs.remove(0));
+			return r.ks.get(0);
+		}
+
+		/**
+		 * 余裕のある左ノードから枝を1本分けてもらう
+		 */
+		public Key moveLR(NodeBottom l, NodeBottom r) {
+			int i = l.ks.size() - 1;
+			r.ks.add(0, l.ks.remove(i));
+			r.vs.add(0, l.vs.remove(i));
+			return r.ks.get(0);
+		}
+	}
+
+	/**
+	 * 木 root にキー key で値 x を挿入する
+	 */
+	public void insert(Key key, Value value) {
+		root = root.insert(key, value).deactivate();
+	}
+
+	/**
+	 * 木 root からキー key のノードを削除する
+	 */
+	public void delete(Key key) {
+		root.delete(key);
+		root = root.trim();
+	}
+
+	/**
+	 * キーの検索
+	 * @return ヒットすれば true、しなければ false
+	 */
+	public boolean member(Key key) {
+		if(root == nil) {
+			return false;
+		}
+		Node t = root;
+		while(!bottom(t)) {
+			int i;
+			for(i = 0; i < t.ks().size(); i++) {
+				final int compare = key.compareTo(t.ks().get(i));
+				if(compare < 0) {
+					break;
+				} else if(compare == 0) {
+					return true;
+				}
+			}
+			t = t.ns().get(i);
+		}
+		NodeBottom u = (NodeBottom) t;
+		for(int i = 0; i < u.ks.size(); i++) {
+			if(key.compareTo(u.ks.get(i)) == 0) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * キーから値を得る。
+	 * @return キーから得た値。ヒットしない場合 null を返す
+	 */
+	public Value lookup(Key key) {
+		if(root == nil) {
+			return null;
+		}
+		Node t = root;
+		while(!bottom(t)) {
+			int i;
+			for(i = 0; i < t.ks().size(); i++) {
+				final int compare = key.compareTo(t.ks().get(i));
+				if(compare < 0) {
+					break;
+				} else if(compare == 0) {
+					i++;
+					break;
+				}
+				t = t.ns().get(i);
+			}
+		}
+		NodeBottom u = (NodeBottom) t;
+		for(int i = 0; i < u.ks.size(); i++) {
+			if(key.compareTo(u.ks.get(i)) == 0) {
+				return u.vs.get(i);
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * マップが空かどうか
+	 * @return マップが空なら true、空でないなら false
+	 */
+	public boolean isEmpty() {
+		return root == nil;
+	}
+
+	/**
+	 * マップを空にする
+	 */
+	public void clear() {
+		root = nil;
+	}
+
+	/**
+	 * B+木のキーリストを返す
+	 * @return B+木のキーのリスト
+	 */
+	public ArrayList<Key> keys() {
+		if(root == nil) {
+			return null;
+		}
+		Node t = root;
+		while(!bottom(t)) {
+			t = t.ns().get(0);
+		}
+		NodeBottom u = (NodeBottom) t;
+		ArrayList<Key> al = new ArrayList<Key>();
+		while(u != nil) {
+			al.addAll(u.ks);
+			u = u.next;
+		}
+		return al;
+	}
+
+	/**
+	 * B+木の値のリストを返す
+	 * @return B+木の値の値のリスト
+	 */
+	public ArrayList<Value> values() {
+		if(root == nil) {
+			return null;
+		}
+		Node t = root;
+		while(!bottom(t)) {
+			t = t.ns().get(0);
+		}
+		NodeBottom u = (NodeBottom) t;
+		ArrayList<Value> al = new ArrayList<Value>();
+		while(u != nil) {
+			al.addAll(u.vs);
+			u = u.next;
+		}
+		return al;
+	}
+
+	/**
+	 * マップのサイズを返す
+	 * @return マップのサイズ
+	 */
+	public int size() {
+		return keys().size();
+	}
+
+	/**
+	 * キーの最小値を返す
+	 * @return キーの最小値
+	 */
+	public Key min() {
+		if(root == nil) {
+			return null;
+		}
+		Node t = root;
+		while(!bottom(t)) {
+			t = t.ns().get(0);
+		}
+		return t.ks().get(0);
+	}
+
+	/**
+	 * キーの最大値を返す
+	 * @return キーの最大値
+	 */
+	public Key max() {
+		if(root == nil) {
+			return null;
+		}
+		Node t = root;
+		while(!bottom(t)) {
+			t = t.ns().get(t.ns().size() - 1);
+		}
+		return t.ks().get(t.ks().size() - 1);
+	}
+
+    //=========================================================================
+    // デバッグ用ルーチン
+    //=========================================================================
+
+    // B+木をグラフ文字列に変換する
+    public String toString() {
+        return toGraph("", root).replaceAll("\\s+$", "");
+    }
+
+    // バランスが取れているか確認する
+    public boolean balanced() { return balanced(root); }
+
+    // 多分探索木になっているか確認する
+    public boolean mstValid() { return mstValid(root); }
+
+    // 根と最下層のノードを除くノードが hm 以上の枝を持っているか確認する
+    public boolean dense() {
+        if (root == nil) return true;
+        int n = root.ns().size();
+        if (bottom(root)) { if (n < 1 || m-1 < n) return false; }
+        else {
+            if (n < 2 || m < n) return false;
+            for (int i = 0; i < n; i++)
+                if (!denseHalf(root.ns().get(i))) return false;
+        }
+        return true;
+    }
+
+    private static final String nl = System.getProperty("line.separator");
+    private String toGraph(String head, Node t) {
+        if (t == nil) return "";
+        String graph = "";
+        if (bottom(t))
+            graph += head + t.ks() + nl;
+        else {
+            int i = t.ns().size();
+            graph += toGraph(head + "    ", t.ns().get(--i));
+            graph += head + "∧" + nl;
+            do {
+                graph += head + t.ks().get(--i) + nl;
+                if (i == 0) graph += head + "∨" + nl;
+                graph += toGraph(head + "    ", t.ns().get(i));
+            } while (i > 0);
+        }
+        return graph;
+    }
+
+    // 部分木 t の高さを返す
+    private int height(Node t) {
+        if (t == nil) return 0;
+        if (bottom(t)) return 1;
+        int mx = height(t.ns().get(0));
+        for (int i = 1; i < t.ns().size(); i++) {
+            int h = height(t.ns().get(i));
+            if (h > mx) mx = h;
+        }
+        return 1 + mx;
+    }
+
+    private boolean balanced(Node t) {
+        if (t == nil) return true;
+        if (bottom(t)) return true;
+        if (!balanced(t.ns().get(0))) return false;
+        int h = height(t.ns().get(0));
+        for (int i = 1; i < t.ns().size(); i++) {
+            if (!balanced(t.ns().get(i))) return false;
+            if (h != height(t.ns().get(i))) return false;
+        }
+        return true;
+    }
+
+    private boolean mstValid(Node t) {
+        if (t == nil) return true;
+        if (bottom(t)) {
+            for (int i = 1; i < t.ks().size(); i++) {
+                Key key1 = t.ks().get(i - 1);
+                Key key2 = t.ks().get(i);
+                if (!(key1.compareTo(key2) < 0)) return false;
+            }
+            return true;
+        }
+        Key key = t.ks().get(0);
+        if (!small(key, t.ns().get(0))) return false;
+        if (!mstValid(t.ns().get(0))) return false;
+        int i;
+        for (i = 1; i < t.ks().size(); i++) {
+            Key key1 = t.ks().get(i - 1);
+            Key key2 = t.ks().get(i);
+            if (!(key1.compareTo(key2) < 0)) return false;
+            if (!between(key1, key2, t.ns().get(i))) return false;
+            if (!mstValid(t.ns().get(i))) return false;
+        }
+        key = t.ks().get(i - 1);
+        if (!large(key, t.ns().get(i))) return false;
+        if (!mstValid(t.ns().get(i))) return false;
+        return true;
+    }
+
+    private boolean small(Key key, Node t) {
+        if (t == nil) return true;
+        if (bottom(t)) {
+            for (int i = 0; i < t.ks().size(); i++)
+                if (!(key.compareTo(t.ks().get(i)) > 0)) return false;
+            return true;
+        }
+        int i;
+        for (i = 0; i < t.ks().size(); i++) {
+            if (!small(key, t.ns().get(i))) return false;
+            if (!(key.compareTo(t.ks().get(i)) > 0)) return false;
+        }
+        if (!small(key, t.ns().get(i))) return false;
+        return true;
+    }
+
+    private boolean between(Key key1, Key key2, Node t) {
+        if (t == nil) return true;
+        if (bottom(t)) {
+            for (int i = 0; i < t.ks().size(); i++) {
+                if (!(key1.compareTo(t.ks().get(i)) <= 0)) return false;
+                if (!(key2.compareTo(t.ks().get(i)) >  0)) return false;
+            }
+            return true;
+        }
+        int i;
+        for (i = 0; i < t.ks().size(); i++) {
+            if (!between(key1, key2, t.ns().get(i))) return false;
+            if (!(key1.compareTo(t.ks().get(i)) <= 0)) return false;
+            if (!(key2.compareTo(t.ks().get(i)) >  0)) return false;
+        }
+        if (!between(key1, key2, t.ns().get(i))) return false;
+        return true;
+    }
+
+    private boolean large(Key key, Node t) {
+        if (t == nil) return true;
+        if (bottom(t)) {
+            for (int i = 0; i < t.ks().size(); i++)
+                if (!(key.compareTo(t.ks().get(i)) <= 0)) return false;
+            return true;
+        }
+        int i;
+        for (i = 0; i < t.ks().size(); i++) {
+            if (!large(key, t.ns().get(i))) return false;
+            if (!(key.compareTo(t.ks().get(i)) <= 0)) return false;
+        }
+        if (!large(key, t.ns().get(i))) return false;
+        return true;
+    }
+
+    private boolean denseHalf(Node t) {
+        if (t == nil) return true;
+        if (bottom(t)) {
+            final int n = t.ks().size();
+            if (n < hm-1 || m-1 < n) return false;
+        }
+        else {
+            final int n = t.ns().size();
+            if (n < hm || m < n) return false;
+            for (int i = 0; i < n; i++)
+                if (!denseHalf(t.ns().get(i))) return false;
+        }
+        return true;
+    }
+
+    //=========================================================================
+    // メインルーチン
+    //=========================================================================
+
+    public static void main(String[] args) {
+        final int n = 30;
+        BPMap<Integer,Integer> m = new BPMap<>();
+        ArrayList<Integer> keys = new ArrayList<>();
+        for (int i = 0; i < n; i++) keys.add(i);
+        java.util.Collections.shuffle(keys);
+        for (int i = 0; i < n; i++) m.insert(keys.get(i), i);
+        System.out.println(m);
+        System.out.println();
+        System.out.println("size: " + m.size());
+        System.out.println("keys: " + m.keys());
+
+        final int N = 1000000;
+        java.util.Random rng = new java.util.Random();
+        m.clear();
+        java.util.TreeMap<Integer,Integer> answer = new java.util.TreeMap<>();
+        int insertErrors = 0;
+        int deleteErrors = 0;
+        for (int i = 0; i < N; i++) {
+            int key = rng.nextInt(N);
+            m.insert(key, i);
+            answer.put(key, i);
+        }
+        for (int key: answer.keySet()) {
+            int x = m.lookup(key);
+            int y = answer.get(key);
+            if (x != y) insertErrors++;
+        }
+        int half = answer.size()/2;
+        for (int key: answer.keySet()) {
+            if (half-- == 0) break;
+            m.delete(key);
+        }
+        half = answer.size()/2;
+        for (int key: answer.keySet()) {
+            if (half-- == 0) break;
+            if (m.member(key)) deleteErrors++;
+        }
+        System.out.println();
+        System.out.println("バランス:   " + (m.balanced()      ? "OK" : "NG"));
+        System.out.println("多分探索木: " + (m.mstValid()      ? "OK" : "NG"));
+        System.out.println("密度:       " + (m.dense()         ? "OK" : "NG"));
+        System.out.println("挿入:       " + (insertErrors == 0 ? "OK" : "NG"));
+        System.out.println("削除:       " + (deleteErrors == 0 ? "OK" : "NG"));
+        for (int key: m.keys()) m.delete(key);
+        System.out.println("全削除:     " + (m.isEmpty()       ? "OK" : "NG"));
+    }
 }

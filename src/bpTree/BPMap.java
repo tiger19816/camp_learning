@@ -2,6 +2,7 @@ package bpTree;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Scanner;
 
 public class BPMap<Key extends Comparable<? super Key>, Value> {
 
@@ -581,8 +582,8 @@ public class BPMap<Key extends Comparable<? super Key>, Value> {
 					i++;
 					break;
 				}
-				t = t.ns().get(i);
 			}
+			t = t.ns().get(i);
 		}
 		NodeBottom u = (NodeBottom) t;
 		for(int i = 0; i < u.ks.size(); i++) {
@@ -689,218 +690,290 @@ public class BPMap<Key extends Comparable<? super Key>, Value> {
 	}
 
     //=========================================================================
-    // デバッグ用ルーチン
-    //=========================================================================
-
-    // B+木をグラフ文字列に変換する
-    public String toString() {
-        return toGraph("", root).replaceAll("\\s+$", "");
-    }
-
-    // バランスが取れているか確認する
-    public boolean balanced() { return balanced(root); }
-
-    // 多分探索木になっているか確認する
-    public boolean mstValid() { return mstValid(root); }
-
-    // 根と最下層のノードを除くノードが hm 以上の枝を持っているか確認する
-    public boolean dense() {
-        if (root == nil) return true;
-        int n = root.ns().size();
-        if (bottom(root)) { if (n < 1 || m-1 < n) return false; }
-        else {
-            if (n < 2 || m < n) return false;
-            for (int i = 0; i < n; i++)
-                if (!denseHalf(root.ns().get(i))) return false;
-        }
-        return true;
-    }
-
-    private static final String nl = System.getProperty("line.separator");
-    private String toGraph(String head, Node t) {
-        if (t == nil) return "";
-        String graph = "";
-        if (bottom(t))
-            graph += head + t.ks() + nl;
-        else {
-            int i = t.ns().size();
-            graph += toGraph(head + "    ", t.ns().get(--i));
-            graph += head + "∧" + nl;
-            do {
-                graph += head + t.ks().get(--i) + nl;
-                if (i == 0) graph += head + "∨" + nl;
-                graph += toGraph(head + "    ", t.ns().get(i));
-            } while (i > 0);
-        }
-        return graph;
-    }
-
-    // 部分木 t の高さを返す
-    private int height(Node t) {
-        if (t == nil) return 0;
-        if (bottom(t)) return 1;
-        int mx = height(t.ns().get(0));
-        for (int i = 1; i < t.ns().size(); i++) {
-            int h = height(t.ns().get(i));
-            if (h > mx) mx = h;
-        }
-        return 1 + mx;
-    }
-
-    private boolean balanced(Node t) {
-        if (t == nil) return true;
-        if (bottom(t)) return true;
-        if (!balanced(t.ns().get(0))) return false;
-        int h = height(t.ns().get(0));
-        for (int i = 1; i < t.ns().size(); i++) {
-            if (!balanced(t.ns().get(i))) return false;
-            if (h != height(t.ns().get(i))) return false;
-        }
-        return true;
-    }
-
-    private boolean mstValid(Node t) {
-        if (t == nil) return true;
-        if (bottom(t)) {
-            for (int i = 1; i < t.ks().size(); i++) {
-                Key key1 = t.ks().get(i - 1);
-                Key key2 = t.ks().get(i);
-                if (!(key1.compareTo(key2) < 0)) return false;
-            }
-            return true;
-        }
-        Key key = t.ks().get(0);
-        if (!small(key, t.ns().get(0))) return false;
-        if (!mstValid(t.ns().get(0))) return false;
-        int i;
-        for (i = 1; i < t.ks().size(); i++) {
-            Key key1 = t.ks().get(i - 1);
-            Key key2 = t.ks().get(i);
-            if (!(key1.compareTo(key2) < 0)) return false;
-            if (!between(key1, key2, t.ns().get(i))) return false;
-            if (!mstValid(t.ns().get(i))) return false;
-        }
-        key = t.ks().get(i - 1);
-        if (!large(key, t.ns().get(i))) return false;
-        if (!mstValid(t.ns().get(i))) return false;
-        return true;
-    }
-
-    private boolean small(Key key, Node t) {
-        if (t == nil) return true;
-        if (bottom(t)) {
-            for (int i = 0; i < t.ks().size(); i++)
-                if (!(key.compareTo(t.ks().get(i)) > 0)) return false;
-            return true;
-        }
-        int i;
-        for (i = 0; i < t.ks().size(); i++) {
-            if (!small(key, t.ns().get(i))) return false;
-            if (!(key.compareTo(t.ks().get(i)) > 0)) return false;
-        }
-        if (!small(key, t.ns().get(i))) return false;
-        return true;
-    }
-
-    private boolean between(Key key1, Key key2, Node t) {
-        if (t == nil) return true;
-        if (bottom(t)) {
-            for (int i = 0; i < t.ks().size(); i++) {
-                if (!(key1.compareTo(t.ks().get(i)) <= 0)) return false;
-                if (!(key2.compareTo(t.ks().get(i)) >  0)) return false;
-            }
-            return true;
-        }
-        int i;
-        for (i = 0; i < t.ks().size(); i++) {
-            if (!between(key1, key2, t.ns().get(i))) return false;
-            if (!(key1.compareTo(t.ks().get(i)) <= 0)) return false;
-            if (!(key2.compareTo(t.ks().get(i)) >  0)) return false;
-        }
-        if (!between(key1, key2, t.ns().get(i))) return false;
-        return true;
-    }
-
-    private boolean large(Key key, Node t) {
-        if (t == nil) return true;
-        if (bottom(t)) {
-            for (int i = 0; i < t.ks().size(); i++)
-                if (!(key.compareTo(t.ks().get(i)) <= 0)) return false;
-            return true;
-        }
-        int i;
-        for (i = 0; i < t.ks().size(); i++) {
-            if (!large(key, t.ns().get(i))) return false;
-            if (!(key.compareTo(t.ks().get(i)) <= 0)) return false;
-        }
-        if (!large(key, t.ns().get(i))) return false;
-        return true;
-    }
-
-    private boolean denseHalf(Node t) {
-        if (t == nil) return true;
-        if (bottom(t)) {
-            final int n = t.ks().size();
-            if (n < hm-1 || m-1 < n) return false;
-        }
-        else {
-            final int n = t.ns().size();
-            if (n < hm || m < n) return false;
-            for (int i = 0; i < n; i++)
-                if (!denseHalf(t.ns().get(i))) return false;
-        }
-        return true;
-    }
-
-    //=========================================================================
     // メインルーチン
     //=========================================================================
 
     public static void main(String[] args) {
-        final int n = 30;
-        BPMap<Integer,Integer> m = new BPMap<>();
-        ArrayList<Integer> keys = new ArrayList<>();
-        for (int i = 0; i < n; i++) keys.add(i);
-        java.util.Collections.shuffle(keys);
-        for (int i = 0; i < n; i++) m.insert(keys.get(i), i);
-        System.out.println(m);
-        System.out.println();
-        System.out.println("size: " + m.size());
-        System.out.println("keys: " + m.keys());
 
-        final int N = 1000000;
-        java.util.Random rng = new java.util.Random();
-        m.clear();
-        java.util.TreeMap<Integer,Integer> answer = new java.util.TreeMap<>();
-        int insertErrors = 0;
-        int deleteErrors = 0;
-        for (int i = 0; i < N; i++) {
-            int key = rng.nextInt(N);
-            m.insert(key, i);
-            answer.put(key, i);
-        }
-        for (int key: answer.keySet()) {
-            int x = m.lookup(key);
-            int y = answer.get(key);
-            if (x != y) insertErrors++;
-        }
-        int half = answer.size()/2;
-        for (int key: answer.keySet()) {
-            if (half-- == 0) break;
-            m.delete(key);
-        }
-        half = answer.size()/2;
-        for (int key: answer.keySet()) {
-            if (half-- == 0) break;
-            if (m.member(key)) deleteErrors++;
-        }
-        System.out.println();
-        System.out.println("バランス:   " + (m.balanced()      ? "OK" : "NG"));
-        System.out.println("多分探索木: " + (m.mstValid()      ? "OK" : "NG"));
-        System.out.println("密度:       " + (m.dense()         ? "OK" : "NG"));
-        System.out.println("挿入:       " + (insertErrors == 0 ? "OK" : "NG"));
-        System.out.println("削除:       " + (deleteErrors == 0 ? "OK" : "NG"));
-        for (int key: m.keys()) m.delete(key);
-        System.out.println("全削除:     " + (m.isEmpty()       ? "OK" : "NG"));
+    	Scanner scan = new Scanner(System.in);
+
+    	boolean flag = true;
+
+    	BPMap<Integer, Integer> m = new BPMap<>();
+
+    	while(flag) {
+
+    		System.out.print("コマンドを入力：");
+    		String command = scan.next();
+
+    		switch (command) {
+			case "insert":
+				System.out.println("insertモード");
+				while(true) {
+					System.out.println("keyとvalueを入力(keyを-1でコマンド入力に戻る)");
+		        	int key = scan.nextInt();
+		        	if(key == -1) {
+			        	break;
+		        	}
+		        	int value = scan.nextInt();
+			        m.insert(key, value);
+				}
+				break;
+			case "select":
+				try {
+					System.out.print("値を取り出したいキーを入力：");
+		        	int key = scan.nextInt();
+		        	int value = m.lookup(key);
+					System.out.println("値：" + value);
+				} catch(NullPointerException ex) {
+					System.out.println("入力されたキーは存在しません");
+				}
+				break;
+			case "delete":
+				System.out.print("削除したいキーを入力：");
+	        	int key = scan.nextInt();
+				if(m.member(key)) {
+					m.delete(key);
+				} else {
+					System.out.println("キーが存在しません");
+				}
+				break;
+			case "tree":
+				if(!m.isEmpty()) {
+					System.out.println(m);
+					System.out.println();
+			        System.out.println("size: " + m.size());
+			        System.out.println("keys: " + m.keys());
+			        System.out.println("values: " + m.values());
+				} else {
+					System.out.println("空です");
+				}
+				break;
+			case "end":
+				flag = false;
+				break;
+			default:
+				System.out.println("入力されたコマンドは存在しません");
+				System.out.println("insert");
+				System.out.println("select");
+				System.out.println("delete");
+				System.out.println("tree");
+				System.out.println("end");
+				break;
+			}
+    	}
+
+//        final int n = 100;
+//        BPMap<Integer,Integer> m = new BPMap<>();
+//        ArrayList<Integer> keys = new ArrayList<>();
+//        for (int i = 0; i < n; i++) keys.add(i);
+//        java.util.Collections.shuffle(keys);
+//        for (int i = 0; i < n; i++) m.insert(keys.get(i), i);
+//        System.out.println(m);
+//        System.out.println();
+//        System.out.println("size: " + m.size());
+//        System.out.println("keys: " + m.keys());
+//        System.out.println("values: " + m.values());
+//
+//        final int N = 1000000;
+//        java.util.Random rng = new java.util.Random();
+//        m.clear();
+//        java.util.TreeMap<Integer,Integer> answer = new java.util.TreeMap<>();
+//        int insertErrors = 0;
+//        int deleteErrors = 0;
+//        for (int i = 0; i < N; i++) {
+//            int key = rng.nextInt(N);
+//            m.insert(key, i);
+//            answer.put(key, i);
+//        }
+//        for (int key: answer.keySet()) {
+//            int x = m.lookup(key);
+//            int y = answer.get(key);
+//            if (x != y) insertErrors++;
+//        }
+//        int half = answer.size()/2;
+//        for (int key: answer.keySet()) {
+//            if (half-- == 0) break;
+//            m.delete(key);
+//        }
+//        half = answer.size()/2;
+//        for (int key: answer.keySet()) {
+//            if (half-- == 0) break;
+//            if (m.member(key)) deleteErrors++;
+//        }
+//        System.out.println();
+//        System.out.println("バランス:   " + (m.balanced()      ? "OK" : "NG"));
+//        System.out.println("多分探索木: " + (m.mstValid()      ? "OK" : "NG"));
+//        System.out.println("密度:       " + (m.dense()         ? "OK" : "NG"));
+//        System.out.println("挿入:       " + (insertErrors == 0 ? "OK" : "NG"));
+//        System.out.println("削除:       " + (deleteErrors == 0 ? "OK" : "NG"));
+//        for (int key: m.keys()) m.delete(key);
+//        System.out.println("全削除:     " + (m.isEmpty()       ? "OK" : "NG"));
     }
+
+
+    //=========================================================================
+    // デバッグ用ルーチン
+    //=========================================================================
+//
+//    // B+木をグラフ文字列に変換する
+//    public String toString() {
+//        return toGraph("", root).replaceAll("\\s+$", "");
+//    }
+//
+//    // バランスが取れているか確認する
+//    public boolean balanced() { return balanced(root); }
+//
+//    // 多分探索木になっているか確認する
+//    public boolean mstValid() { return mstValid(root); }
+//
+//    // 根と最下層のノードを除くノードが hm 以上の枝を持っているか確認する
+//    public boolean dense() {
+//        if (root == nil) return true;
+//        int n = root.ns().size();
+//        if (bottom(root)) { if (n < 1 || m-1 < n) return false; }
+//        else {
+//            if (n < 2 || m < n) return false;
+//            for (int i = 0; i < n; i++)
+//                if (!denseHalf(root.ns().get(i))) return false;
+//        }
+//        return true;
+//    }
+//
+//    private static final String nl = System.getProperty("line.separator");
+//    private String toGraph(String head, Node t) {
+//        if (t == nil) return "";
+//        String graph = "";
+//        if (bottom(t))
+//            graph += head + t.ks() + nl;
+//        else {
+//            int i = t.ns().size();
+//            graph += toGraph(head + "    ", t.ns().get(--i));
+//            graph += head + "∧" + nl;
+//            do {
+//                graph += head + t.ks().get(--i) + nl;
+//                if (i == 0) graph += head + "∨" + nl;
+//                graph += toGraph(head + "    ", t.ns().get(i));
+//            } while (i > 0);
+//        }
+//        return graph;
+//    }
+//
+//    // 部分木 t の高さを返す
+//    private int height(Node t) {
+//        if (t == nil) return 0;
+//        if (bottom(t)) return 1;
+//        int mx = height(t.ns().get(0));
+//        for (int i = 1; i < t.ns().size(); i++) {
+//            int h = height(t.ns().get(i));
+//            if (h > mx) mx = h;
+//        }
+//        return 1 + mx;
+//    }
+//
+//    private boolean balanced(Node t) {
+//        if (t == nil) return true;
+//        if (bottom(t)) return true;
+//        if (!balanced(t.ns().get(0))) return false;
+//        int h = height(t.ns().get(0));
+//        for (int i = 1; i < t.ns().size(); i++) {
+//            if (!balanced(t.ns().get(i))) return false;
+//            if (h != height(t.ns().get(i))) return false;
+//        }
+//        return true;
+//    }
+//
+//    private boolean mstValid(Node t) {
+//        if (t == nil) return true;
+//        if (bottom(t)) {
+//            for (int i = 1; i < t.ks().size(); i++) {
+//                Key key1 = t.ks().get(i - 1);
+//                Key key2 = t.ks().get(i);
+//                if (!(key1.compareTo(key2) < 0)) return false;
+//            }
+//            return true;
+//        }
+//        Key key = t.ks().get(0);
+//        if (!small(key, t.ns().get(0))) return false;
+//        if (!mstValid(t.ns().get(0))) return false;
+//        int i;
+//        for (i = 1; i < t.ks().size(); i++) {
+//            Key key1 = t.ks().get(i - 1);
+//            Key key2 = t.ks().get(i);
+//            if (!(key1.compareTo(key2) < 0)) return false;
+//            if (!between(key1, key2, t.ns().get(i))) return false;
+//            if (!mstValid(t.ns().get(i))) return false;
+//        }
+//        key = t.ks().get(i - 1);
+//        if (!large(key, t.ns().get(i))) return false;
+//        if (!mstValid(t.ns().get(i))) return false;
+//        return true;
+//    }
+//
+//    private boolean small(Key key, Node t) {
+//        if (t == nil) return true;
+//        if (bottom(t)) {
+//            for (int i = 0; i < t.ks().size(); i++)
+//                if (!(key.compareTo(t.ks().get(i)) > 0)) return false;
+//            return true;
+//        }
+//        int i;
+//        for (i = 0; i < t.ks().size(); i++) {
+//            if (!small(key, t.ns().get(i))) return false;
+//            if (!(key.compareTo(t.ks().get(i)) > 0)) return false;
+//        }
+//        if (!small(key, t.ns().get(i))) return false;
+//        return true;
+//    }
+//
+//    private boolean between(Key key1, Key key2, Node t) {
+//        if (t == nil) return true;
+//        if (bottom(t)) {
+//            for (int i = 0; i < t.ks().size(); i++) {
+//                if (!(key1.compareTo(t.ks().get(i)) <= 0)) return false;
+//                if (!(key2.compareTo(t.ks().get(i)) >  0)) return false;
+//            }
+//            return true;
+//        }
+//        int i;
+//        for (i = 0; i < t.ks().size(); i++) {
+//            if (!between(key1, key2, t.ns().get(i))) return false;
+//            if (!(key1.compareTo(t.ks().get(i)) <= 0)) return false;
+//            if (!(key2.compareTo(t.ks().get(i)) >  0)) return false;
+//        }
+//        if (!between(key1, key2, t.ns().get(i))) return false;
+//        return true;
+//    }
+//
+//    private boolean large(Key key, Node t) {
+//        if (t == nil) return true;
+//        if (bottom(t)) {
+//            for (int i = 0; i < t.ks().size(); i++)
+//                if (!(key.compareTo(t.ks().get(i)) <= 0)) return false;
+//            return true;
+//        }
+//        int i;
+//        for (i = 0; i < t.ks().size(); i++) {
+//            if (!large(key, t.ns().get(i))) return false;
+//            if (!(key.compareTo(t.ks().get(i)) <= 0)) return false;
+//        }
+//        if (!large(key, t.ns().get(i))) return false;
+//        return true;
+//    }
+//
+//    private boolean denseHalf(Node t) {
+//        if (t == nil) return true;
+//        if (bottom(t)) {
+//            final int n = t.ks().size();
+//            if (n < hm-1 || m-1 < n) return false;
+//        }
+//        else {
+//            final int n = t.ns().size();
+//            if (n < hm || m < n) return false;
+//            for (int i = 0; i < n; i++)
+//                if (!denseHalf(t.ns().get(i))) return false;
+//        }
+//        return true;
+//    }
+
 }

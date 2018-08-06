@@ -594,6 +594,48 @@ public class BPMap<Key extends Comparable<? super Key>, Value> {
 		return null;
 	}
 
+	public ArrayList<Value> range(Key key, int range) {
+		if(root == nil) {
+			return null;
+		}
+		Node t = root;
+		while(!bottom(t)) {
+			int i;
+			for(i = 0; i < t.ks().size(); i++) {
+				final int compare = key.compareTo(t.ks().get(i));
+				if(compare < 0) {
+					break;
+				} else if(compare == 0) {
+					i++;
+					break;
+				}
+			}
+			t = t.ns().get(i);
+		}
+		NodeBottom u = (NodeBottom) t;
+		ArrayList<Value> result = new ArrayList<Value>();
+		for(int i = 0; i < u.ks.size(); i++) {
+			if(key.compareTo(u.ks.get(i)) == 0) {
+				while(i < u.ks.size() && 0 < range) {
+					result.add(u.vs.get(i));
+					range--;
+					i++;
+					if(i == u.ks.size() && 0 < range) {
+						u = u.next;
+						if(u == nil) {
+							break;
+						}
+						i = 0;
+					} else if(range == 0) {
+						break;
+					}
+				}
+				break;
+			}
+		}
+		return result;
+	}
+
 	/**
 	 * マップが空かどうか
 	 * @return マップが空なら true、空でないなら false
@@ -749,6 +791,13 @@ public class BPMap<Key extends Comparable<? super Key>, Value> {
 					System.out.println("空です");
 				}
 				break;
+			case "range":
+				int rangeKey = scan.nextInt();
+				ArrayList<Integer> range = m.range(rangeKey, 3);
+				for(Integer value : range) {
+					System.out.println(value);
+				}
+				break;
 			case "end":
 				flag = false;
 				break;
@@ -815,11 +864,11 @@ public class BPMap<Key extends Comparable<? super Key>, Value> {
     //=========================================================================
     // デバッグ用ルーチン
     //=========================================================================
-//
-//    // B+木をグラフ文字列に変換する
-//    public String toString() {
-//        return toGraph("", root).replaceAll("\\s+$", "");
-//    }
+
+    // B+木をグラフ文字列に変換する
+    public String toString() {
+        return toGraph("", root).replaceAll("\\s+$", "");
+    }
 //
 //    // バランスが取れているか確認する
 //    public boolean balanced() { return balanced(root); }
@@ -839,26 +888,26 @@ public class BPMap<Key extends Comparable<? super Key>, Value> {
 //        }
 //        return true;
 //    }
-//
-//    private static final String nl = System.getProperty("line.separator");
-//    private String toGraph(String head, Node t) {
-//        if (t == nil) return "";
-//        String graph = "";
-//        if (bottom(t))
-//            graph += head + t.ks() + nl;
-//        else {
-//            int i = t.ns().size();
-//            graph += toGraph(head + "    ", t.ns().get(--i));
-//            graph += head + "∧" + nl;
-//            do {
-//                graph += head + t.ks().get(--i) + nl;
-//                if (i == 0) graph += head + "∨" + nl;
-//                graph += toGraph(head + "    ", t.ns().get(i));
-//            } while (i > 0);
-//        }
-//        return graph;
-//    }
-//
+
+    private static final String nl = System.getProperty("line.separator");
+    private String toGraph(String head, Node t) {
+        if (t == nil) return "";
+        String graph = "";
+        if (bottom(t))
+            graph += head + t.ks() + nl;
+        else {
+            int i = t.ns().size();
+            graph += toGraph(head + "    ", t.ns().get(--i));
+            graph += head + "∧" + nl;
+            do {
+                graph += head + t.ks().get(--i) + nl;
+                if (i == 0) graph += head + "∨" + nl;
+                graph += toGraph(head + "    ", t.ns().get(i));
+            } while (i > 0);
+        }
+        return graph;
+    }
+
 //    // 部分木 t の高さを返す
 //    private int height(Node t) {
 //        if (t == nil) return 0;

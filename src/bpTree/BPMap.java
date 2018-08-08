@@ -1,10 +1,10 @@
 package bpTree;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Scanner;
 
-public class BPMap<Key extends Comparable<? super Key>, Value> {
+public class BPMap<Key extends Comparable<? super Key>, Value> implements Serializable {
 
 	/**
 	 * B+木のオーダー
@@ -18,7 +18,7 @@ public class BPMap<Key extends Comparable<? super Key>, Value> {
 	/**
 	 * ノードの型（抽象型）
 	 */
-	private abstract class Node {
+	private abstract class Node implements Serializable {
 		/**
 		 * キーのリスト
 		 */
@@ -594,6 +594,9 @@ public class BPMap<Key extends Comparable<? super Key>, Value> {
 		return null;
 	}
 
+	/**
+	 * 範囲検索を行う。
+	 */
 	public ArrayList<Value> range(Key key, int range) {
 		if(root == nil) {
 			return null;
@@ -732,85 +735,132 @@ public class BPMap<Key extends Comparable<? super Key>, Value> {
 	}
 
     //=========================================================================
-    // メインルーチン
+    // デバッグ用ルーチン
     //=========================================================================
 
-    public static void main(String[] args) {
+	/**
+	 * B+木をグラフ文字列に変換する
+	 */
+    public String toString() {
+        return toGraph("", root).replaceAll("\\s+$", "");
+    }
 
-    	Scanner scan = new Scanner(System.in);
+    private static final String nl = System.getProperty("line.separator");
 
-    	boolean flag = true;
+    private String toGraph(String head, Node t) {
+        if(t == nil) {
+        	return "";
+        }
+        String graph = "";
+        if(bottom(t)) {
+            graph += head + t.ks() + nl;
+        } else {
+            int i = t.ns().size();
+            graph += toGraph(head + "    ", t.ns().get(--i));
+            graph += head + "∧" + nl;
+            do {
+                graph += head + t.ks().get(--i) + nl;
+                if (i == 0) {
+                	graph += head + "∨" + nl;
+                }
+                graph += toGraph(head + "    ", t.ns().get(i));
+            } while (i > 0);
+        }
+        return graph;
+    }
 
-    	BPMap<Integer, Integer> m = new BPMap<>();
+    //以下コメント
 
-    	while(flag) {
-
-    		System.out.print("コマンドを入力：");
-    		String command = scan.next();
-
-    		switch (command) {
-			case "insert":
-				System.out.println("insertモード");
-				while(true) {
-					System.out.println("keyとvalueを入力(keyを-1でコマンド入力に戻る)");
-		        	int key = scan.nextInt();
-		        	if(key == -1) {
-			        	break;
-		        	}
-		        	int value = scan.nextInt();
-			        m.insert(key, value);
-				}
-				break;
-			case "select":
-				try {
-					System.out.print("値を取り出したいキーを入力：");
-		        	int key = scan.nextInt();
-		        	int value = m.lookup(key);
-					System.out.println("値：" + value);
-				} catch(NullPointerException ex) {
-					System.out.println("入力されたキーは存在しません");
-				}
-				break;
-			case "delete":
-				System.out.print("削除したいキーを入力：");
-	        	int key = scan.nextInt();
-				if(m.member(key)) {
-					m.delete(key);
-				} else {
-					System.out.println("キーが存在しません");
-				}
-				break;
-			case "tree":
-				if(!m.isEmpty()) {
-					System.out.println(m);
-					System.out.println();
-			        System.out.println("size: " + m.size());
-			        System.out.println("keys: " + m.keys());
-			        System.out.println("values: " + m.values());
-				} else {
-					System.out.println("空です");
-				}
-				break;
-			case "range":
-				int rangeKey = scan.nextInt();
-				ArrayList<Integer> range = m.range(rangeKey, 3);
-				for(Integer value : range) {
-					System.out.println(value);
-				}
-				break;
-			case "end":
-				flag = false;
-				break;
-			default:
-				System.out.println("入力されたコマンドは存在しません");
-				System.out.println("insert");
-				System.out.println("select");
-				System.out.println("delete");
-				System.out.println("tree");
-				System.out.println("end");
-				break;
-			}
-    	}
+    //=========================================================================
+    // メインルーチン
+    //=========================================================================
+//
+//    public static void main(String[] args) {
+//
+//    	Scanner scan = new Scanner(System.in);
+//
+//    	boolean flag = true;
+//
+//        String basepath = System.getProperty("user.dir");
+//        String fileName = basepath + "data.dat";
+//        BPMap<Integer, Values> m = (BPMap<Integer, Values>) read(fileName);
+//
+//        if(m == null) {
+//        	m = new BPMap<>();
+//        }
+//
+//    	while(flag) {
+//
+//    		System.out.print("コマンドを入力：");
+//    		String command = scan.next();
+//
+//    		switch (command) {
+//			case "insert":
+//				System.out.println("insertモード");
+//				while(true) {
+//					System.out.println("keyとvalueを入力(keyを-1でコマンド入力に戻る)");
+//		        	int key = scan.nextInt();
+//		        	if(key == -1) {
+//			        	break;
+//		        	}
+//		        	String value1 = scan.next();
+//		        	String value2 = scan.next();
+//			        m.insert(key, new Values(value1, value2));
+//				}
+//				break;
+//			case "select":
+//				try {
+//					System.out.print("値を取り出したいキーを入力：");
+//		        	int key = scan.nextInt();
+//		        	Values values = m.lookup(key);
+//					System.out.println("値1：" + values.getStr());
+//					System.out.println("値2：" + values.getNum());
+//				} catch(NullPointerException ex) {
+//					System.out.println("入力されたキーは存在しません");
+//				}
+//				break;
+//			case "delete":
+//				System.out.print("削除したいキーを入力：");
+//	        	int key = scan.nextInt();
+//				if(m.member(key)) {
+//					m.delete(key);
+//				} else {
+//					System.out.println("キーが存在しません");
+//				}
+//				break;
+//			case "tree":
+//				if(!m.isEmpty()) {
+//					System.out.println(m);
+//					System.out.println();
+//			        System.out.println("size: " + m.size());
+//			        System.out.println("keys: " + m.keys());
+//			        System.out.println("values: " + m.values());
+//				} else {
+//					System.out.println("空です");
+//				}
+//				break;
+//			case "range":
+//				int rangeKey = scan.nextInt();
+//				ArrayList<Values> range = m.range(rangeKey, 3);
+//				for(Values values : range) {
+//					System.out.println(values.getStr() + " " + values.getNum());
+//				}
+//				break;
+//			case "end":
+//				flag = false;
+//				break;
+//			default:
+//				System.out.println("入力されたコマンドは存在しません");
+//				System.out.println("insert");
+//				System.out.println("select");
+//				System.out.println("delete");
+//				System.out.println("tree");
+//				System.out.println("end");
+//				break;
+//			}
+//    	}
+//
+//        write(fileName, m);
 
 //        final int n = 100;
 //        BPMap<Integer,Integer> m = new BPMap<>();
@@ -858,55 +908,30 @@ public class BPMap<Key extends Comparable<? super Key>, Value> {
 //        System.out.println("削除:       " + (deleteErrors == 0 ? "OK" : "NG"));
 //        for (int key: m.keys()) m.delete(key);
 //        System.out.println("全削除:     " + (m.isEmpty()       ? "OK" : "NG"));
-    }
-
+//    }
 
     //=========================================================================
     // デバッグ用ルーチン
     //=========================================================================
 
-    // B+木をグラフ文字列に変換する
-    public String toString() {
-        return toGraph("", root).replaceAll("\\s+$", "");
-    }
+//  // バランスが取れているか確認する
+//  public boolean balanced() { return balanced(root); }
 //
-//    // バランスが取れているか確認する
-//    public boolean balanced() { return balanced(root); }
+//  // 多分探索木になっているか確認する
+//  public boolean mstValid() { return mstValid(root); }
 //
-//    // 多分探索木になっているか確認する
-//    public boolean mstValid() { return mstValid(root); }
-//
-//    // 根と最下層のノードを除くノードが hm 以上の枝を持っているか確認する
-//    public boolean dense() {
-//        if (root == nil) return true;
-//        int n = root.ns().size();
-//        if (bottom(root)) { if (n < 1 || m-1 < n) return false; }
-//        else {
-//            if (n < 2 || m < n) return false;
-//            for (int i = 0; i < n; i++)
-//                if (!denseHalf(root.ns().get(i))) return false;
-//        }
-//        return true;
-//    }
-
-    private static final String nl = System.getProperty("line.separator");
-    private String toGraph(String head, Node t) {
-        if (t == nil) return "";
-        String graph = "";
-        if (bottom(t))
-            graph += head + t.ks() + nl;
-        else {
-            int i = t.ns().size();
-            graph += toGraph(head + "    ", t.ns().get(--i));
-            graph += head + "∧" + nl;
-            do {
-                graph += head + t.ks().get(--i) + nl;
-                if (i == 0) graph += head + "∨" + nl;
-                graph += toGraph(head + "    ", t.ns().get(i));
-            } while (i > 0);
-        }
-        return graph;
-    }
+//  // 根と最下層のノードを除くノードが hm 以上の枝を持っているか確認する
+//  public boolean dense() {
+//      if (root == nil) return true;
+//      int n = root.ns().size();
+//      if (bottom(root)) { if (n < 1 || m-1 < n) return false; }
+//      else {
+//          if (n < 2 || m < n) return false;
+//          for (int i = 0; i < n; i++)
+//              if (!denseHalf(root.ns().get(i))) return false;
+//      }
+//      return true;
+//  }
 
 //    // 部分木 t の高さを返す
 //    private int height(Node t) {

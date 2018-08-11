@@ -1,11 +1,15 @@
 package bpTree;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 
+/**
+ * ファイルの出し入れをまとめたクラス
+ */
 public class FileIO {
 
     public static void write(String fileName, Object target) {
@@ -44,5 +48,16 @@ public class FileIO {
 //            cnfe.printStackTrace();
         }
         return retObject;
+    }
+
+
+    public static void fileDelete(String filename) {
+        File file = new File(filename);
+
+        if(file.exists()){
+        	if(!file.delete()){
+        		System.out.println("ファイルの削除に失敗しました");
+        	}
+        }
     }
 }

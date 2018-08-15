@@ -377,7 +377,7 @@ public class BPMap<Key extends Comparable<? super Key>, Value> implements Serial
         //=====================================================================
 
 		/**
-		 * 木 this にキー key で値 x を挿入する
+		 * 木 this にキー key で値 value を挿入する
 		 */
 		@Override
 		public Node insert(Key key, Value value) {

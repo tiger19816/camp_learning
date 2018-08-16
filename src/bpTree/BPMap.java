@@ -64,7 +64,7 @@ public class BPMap<Key extends Comparable<? super Key>, Value> implements Serial
 	/**
 	 * B+木の根(nilは空の木)
 	 */
-	private Node root = nil;
+	public Node root = nil;
 
 	/**
 	 * 挿入時のアクティブなノードか判定する
@@ -250,7 +250,7 @@ public class BPMap<Key extends Comparable<? super Key>, Value> implements Serial
 
 		/**
 		 * 部分木 this の最小値キーを削除する
-		 * @return 部分木 this の当たらな最小値キー
+		 * @return 部分木 this の新たな最小値キー
 		 */
 		@Override
 		public Key deleteMin() {
@@ -296,7 +296,7 @@ public class BPMap<Key extends Comparable<? super Key>, Value> implements Serial
 			// 以下、nj がアクティブの場合
 			int i = j - 1;
 			Key key = t.ks.get(i);
-			NodeInterior ni = (NodeInterior) t.ns.get(j);
+			NodeInterior ni = (NodeInterior) t.ns.get(i);
 			if(ni.ns.size() == hm) {
 				ni.ks.add(key);
 				ni.ks.addAll(nj.ks);
@@ -332,7 +332,7 @@ public class BPMap<Key extends Comparable<? super Key>, Value> implements Serial
 	/**
 	 * 最下層のノードの型
 	 */
-	private class NodeBottom extends Node {
+	public class NodeBottom extends Node {
 		/**
 		 * キーのリスト
 		 */
@@ -516,6 +516,14 @@ public class BPMap<Key extends Comparable<? super Key>, Value> implements Serial
 			r.vs.add(0, l.vs.remove(i));
 			return r.ks.get(0);
 		}
+
+		public List<Value> getVs() {
+			return this.vs;
+		}
+
+		public NodeBottom getNext() {
+			return this.next;
+		}
 	}
 
 	/**
@@ -523,6 +531,33 @@ public class BPMap<Key extends Comparable<? super Key>, Value> implements Serial
 	 */
 	public void insert(Key key, Value value) {
 		root = root.insert(key, value).deactivate();
+	}
+
+	/**
+	 * キー key の値 value を更新する
+	 */
+	public void update(Key key, Value value) {
+		Node t = root;
+		while(!bottom(t)) {
+			int i;
+			for(i = 0; i < t.ks().size(); i++) {
+				final int compare = key.compareTo(t.ks().get(i));
+				if(compare < 0) {
+					break;
+				} else if(compare == 0) {
+					i++;
+					break;
+				}
+			}
+			t = t.ns().get(i);
+		}
+		NodeBottom u = (NodeBottom) t;
+		for(int i = 0; i < u.ks.size(); i++) {
+			if(key.compareTo(u.ks.get(i)) == 0) {
+				u.vs.set(i, value);
+				return;
+			}
+		}
 	}
 
 	/**
@@ -592,6 +627,21 @@ public class BPMap<Key extends Comparable<? super Key>, Value> implements Serial
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * 最小値の入ったノードを返す
+	 */
+	public NodeBottom minNode() {
+		if(root == nil) {
+			return null;
+		}
+		Node t = root;
+		while(!bottom(t)) {
+			t = t.ns().get(0);
+		}
+		NodeBottom nb = (NodeBottom) t;
+		return nb;
 	}
 
 	/**
@@ -768,4 +818,11 @@ public class BPMap<Key extends Comparable<? super Key>, Value> implements Serial
         }
         return graph;
     }
+
+    /**
+     * nilのゲッター
+     */
+	public NodeBottom getNil() {
+		return this.nil;
+	}
 }

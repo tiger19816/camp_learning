@@ -6,51 +6,87 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 
 /**
  * ファイルの出し入れをまとめたクラス
  */
 public class FileIO {
 
-    public static void write(String fileName, Object target) {
+	/**
+	 * ファイルへオブジェクトの書き込み
+	 * @param fileName ファイル名
+	 * @param target 書き込むオブジェクト
+	 */
+    public static void write(String filename, Object target) throws Exception {
+    	File tempFile = null;
+		Path tmpPath = Files.createTempFile(Paths.get("./"), "temp", ".dat");
+		tempFile = tmpPath.toFile();
+
+    	//新しいファイルの作成
         FileOutputStream fos = null;
         ObjectOutputStream oos = null;
-        try {
-            fos = new FileOutputStream(fileName);
-            oos = new ObjectOutputStream(fos);
-            oos.writeObject(target);
-        }catch(IOException ioe) {
-//            ioe.printStackTrace();
-        }finally {
-            try {
-                oos.flush();
-            } catch (IOException e) {
-//                e.printStackTrace();
-            }
-            try {
-                oos.close();
-            } catch (IOException e) {
-//                e.printStackTrace();
-            }
-        }
+
+        fos = new FileOutputStream(tempFile);
+        oos = new ObjectOutputStream(fos);
+        oos.writeObject(target);
+        oos.flush();
+
+		//ファイルを永続化
+		fos.getFD().sync();
+
+        oos.close();
+		fos.close();
+
+		//ファイルのリネーム
+        FileSystem fs = FileSystems.getDefault();
+        Path newFile = fs.getPath(filename);
+        Files.move(tmpPath, newFile, StandardCopyOption.ATOMIC_MOVE);
     }
-    public static Object read(String fileName) {
+
+    /**
+     * ファイルからオブジェクトを読み込む
+     * @param fileName ファイル名
+     * @return 読み込んだオブジェクト
+     */
+    public static Object read(String filename) {
         FileInputStream fis = null;
         ObjectInputStream ois = null;
         Object retObject = null;
         try {
-            fis = new FileInputStream(fileName);
+            fis = new FileInputStream(filename);
             ois = new ObjectInputStream(fis);
             retObject = ois.readObject();
-        }catch(IOException ioe) {
+        } catch(IOException ioe) {
 //            ioe.printStackTrace();
-        } catch (ClassNotFoundException cnfe) {
+        } catch(ClassNotFoundException cnfe) {
 //            cnfe.printStackTrace();
-        }
+        } finally {
+			if(ois != null) {
+				try {
+					ois.close();
+				} catch (IOException e) {
+				}
+			}
+			if(fis != null) {
+				try {
+					fis.close();
+				} catch (IOException e) {
+				}
+			}
+		}
         return retObject;
     }
 
-
+    /**
+     * ファイルを削除する
+     * @param filename 削除するファイル名
+     */
     public static void fileDelete(String filename) {
         File file = new File(filename);
 

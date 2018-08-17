@@ -96,4 +96,43 @@ public class FileIO {
         	}
         }
     }
+
+	/**
+	 * ファイルを中身を空にする
+	 * @param fileName ファイル名
+	 */
+    public static void clearFile(String filename) throws Exception {
+    	File tempFile = null;
+		Path tmpPath = Files.createTempFile(Paths.get("./"), "temp", ".dat");
+		tempFile = tmpPath.toFile();
+
+    	//新しいファイルの作成
+        FileOutputStream fos = new FileOutputStream(tempFile);
+        fos.flush();
+
+		//ファイルを永続化
+		fos.getFD().sync();
+
+		fos.close();
+
+		//ファイルのリネーム
+        FileSystem fs = FileSystems.getDefault();
+        Path newFile = fs.getPath(filename);
+        Files.move(tmpPath, newFile, StandardCopyOption.ATOMIC_MOVE);
+    }
+
+    /**
+     * ファイルの存在を確認する
+     * @param filename 確認するファイル名
+     * @return ファイルがあれば true、なければ false
+     */
+    public static boolean fileExists(String filename) {
+        File file = new File(filename);
+
+        if(file.exists()){
+        	return true;
+        } else {
+        	return false;
+        }
+    }
 }

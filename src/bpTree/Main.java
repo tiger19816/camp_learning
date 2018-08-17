@@ -1,8 +1,11 @@
 package bpTree;
 
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.Scanner;
+import java.util.zip.CRC32;
 
 public class Main {
 	/**
@@ -23,142 +26,177 @@ public class Main {
         	m = new BPMap<>();
         }
 
-        //REDOする処理
-//        RandomAccessFile randomfile = null;
-//        try {
-//            //RandomAccessFileオブジェクトの生成
-//            randomfile = new RandomAccessFile(REDO_FILENAME, "rw");
-//
-//            int pointer = 0;
-//
-//            while(pointer < randomfile.length()) {
-//                randomfile.seek(pointer);
-//                String log = randomfile.readLine();
-//                if(log != null){
-//                	switch (log) {
-//					case "insert":
-//						pointer += 12;
-//						randomfile.seek(pointer);
-//						int key = Integer.valueOf(randomfile.readLine());
-//						pointer += 12;
-//						randomfile.seek(pointer);
-//						String value1 = randomfile.readLine();
-//						pointer += 12;
-//						randomfile.seek(pointer);
-//						String value2 = randomfile.readLine();
-//						m.insert(key, new Values(value1, value2));
-//						break;
-//					case "delete":
-//						pointer += 12;
-//						randomfile.seek(pointer);
-//						int deleteKey = Integer.valueOf(randomfile.readLine());
-//						if(m.member(deleteKey)) {
-//							m.delete(deleteKey);
-//						}
-//						break;
-//					default:
-//						break;
-//					}
-//					pointer += 12;
-//                }
-//            }
-//        } catch (IOException e) {
-//        } finally {
-//        	if(randomfile != null) {
-//        		try {
-//                	randomfile.close();  //RandomAccessFileストリームのクローズ
-//        		} catch (IOException e) {
-//				}
-//        	}
-//		}
+        //DBと接続するConnectionクラス
+    	Connection cn = new Connection(m);
+
+    	if(FileIO.fileExists(REDO_FILENAME)) {
+
+	        //REDOする処理
+	        RandomAccessFile randomfile = null;
+	        try {
+	            //RandomAccessFileオブジェクトの生成
+	            randomfile = new RandomAccessFile(REDO_FILENAME, "r");
+
+	            if(randomfile.length() != 0) {
+		            CRC32 crc = new CRC32();
+
+		            int pointer = 0;
+		            while(pointer < randomfile.length()) {
+		                randomfile.seek(pointer);
+		                long checksum = randomfile.readLong();
+
+		                pointer += 8;
+		                randomfile.seek(pointer);
+		                String log = randomfile.readLine();
+
+		                byte[] buffer = log.getBytes();
+		                crc.reset();
+		                crc.update(buffer);
+		                long logChecksum = crc.getValue();
+
+		                if(checksum == logChecksum) {
+		                	int num = 0;
+		                	int next = log.indexOf(" ");
+		                	String command = log.substring(num, next);
+		                	num = next + 1;
+		                	switch (command) {
+							case "insert":
+								next = log.indexOf(" ", num);
+								int key = Integer.valueOf(log.substring(num, next));
+
+								num = next + 1;
+								next = log.indexOf(" ", num);
+								String value1 = log.substring(num, next);
+
+								num = next + 1;
+								next = log.indexOf(" ", num);
+								String value2 = log.substring(num, next);
+
+								cn.insert(key, value1, value2);
+								break;
+							case "update":
+								next = log.indexOf(" ", num);
+								key = Integer.valueOf(log.substring(num, next));
+
+								num = next + 1;
+								next = log.indexOf(" ", num);
+								value1 = log.substring(num, next);
+
+								num = next + 1;
+								next = log.indexOf(" ", num);
+								value2 = log.substring(num, next);
+
+								cn.update(key, value1, value2);
+								break;
+							case "delete":
+								next = log.indexOf(" ", num);
+								key = Integer.valueOf(log.substring(num, next));
+
+								cn.delete(key);
+								break;
+							case "commit":
+								cn.redoCommit();
+								break;
+							default:
+								break;
+							}
+		    				pointer += 40;
+		                } else {
+		                	break;
+		                }
+		            }
+	            }
+	        } catch (IOException e) {
+	        } finally {
+	        	if(randomfile != null) {
+	        		try {
+	                	randomfile.close();  //RandomAccessFileストリームのクローズ
+	        		} catch (IOException e) {
+					}
+	        	}
+			}
+    	}
 
         //データを保存してWALを削除
         try {
             FileIO.write(DATA_FILENAME, m);
-        } catch (Exception e) {
+        } catch(Exception e) {
         	return;
 		}
-        FileIO.fileDelete(REDO_FILENAME);
+        try {
+        	FileIO.clearFile(REDO_FILENAME);
+        } catch(Exception e) {
+        }
 
-		infomation();
+        cn.abort();
+
+    	//Randomクラスのインスタンス化
+        Random random = new Random();
+
+        ArrayList<Integer> keys;
+        if(m.root == m.getNil()) {
+        	keys = new ArrayList<Integer>();
+        } else {
+        	keys = m.keys();
+        }
+        boolean hasCommand = false;
+
+        int randomNum;
+
+        int i;
+        for(i = 0; i < 1; i++) {
+        	randomNum = random.nextInt(10);
+        	if(randomNum < 5) {
+//        		int key = random.nextInt(500);
+				if(cn.insert(i, randomStr(5), (random.nextInt(120) + 1900) + "")) {
+					keys.add(i);
+					hasCommand = true;
+				}
+        	} else if(randomNum < 7) {
+        		if(keys.size() != 0) {
+					if(cn.update(keys.get(random.nextInt(keys.size())), randomStr(5), (random.nextInt(120) + 1900) + "")) {
+						hasCommand = true;
+					}
+				}
+        	} else if(randomNum < 9) {
+        		if(keys.size() != 0) {
+					int index = random.nextInt(keys.size());
+					if(cn.delete(keys.get(index))) {
+						keys.remove(index);
+						hasCommand = true;
+					}
+				}
+        	} else {
+        		if(hasCommand) {
+					if(random.nextInt(10) < 8) {
+						try {
+							cn.commit();
+						} catch (Exception e) {
+						}
+					} else {
+						cn.abort();
+					}
+					hasCommand = false;
+				}
+        	}
+        }
+
+    	//fffff
+        if(hasCommand) {
+        	try {
+        		cn.commit();
+        	} catch (Exception e) {
+			}
+        	hasCommand = false;
+        }
+        cn.abort();
+
+        System.out.println(m);
 
 		//コンソールからキーボード入力を受けるオブジェクト
     	Scanner scan = new Scanner(System.in);
 
     	boolean flag = true;
-
-    	Connection cn = new Connection(m);
-
-    	//Randomクラスのインスタンス化
-        Random random = new Random();
-
-//        ArrayList<Integer> keys;
-//        if(m.root == m.getNil()) {
-//        	keys = new ArrayList<Integer>();
-//        } else {
-//        	keys = m.keys();
-//        }
-//        boolean hasCommand = false;
-//
-//        int randomNum;
-//
-//        int i;
-//        for(i = 0; i < 400; i++) {
-//        	randomNum = random.nextInt(10);
-//        	if(randomNum < 4) {
-////        		int key = random.nextInt(500);
-//				if(cn.insert(i, randomStr(5), (random.nextInt(120) + 1900) + "")) {
-//					keys.add(i);
-//					hasCommand = true;
-//				}
-//        	} else if(randomNum < 6) {
-//        		if(keys.size() != 0) {
-//					if(cn.update(keys.get(random.nextInt(keys.size())), randomStr(5), (random.nextInt(120) + 1900) + "")) {
-//						hasCommand = true;
-//					} else {
-////						break;
-//					}
-//				}
-//        	} else if(randomNum < 9) {
-//        		if(keys.size() != 0) {
-//					int index = random.nextInt(keys.size());
-//					if(cn.delete(keys.get(index))) {
-//						keys.remove(index);
-//						hasCommand = true;
-//					} else {
-////						break;
-//					}
-//				}
-//        	} else {
-//        		if(hasCommand) {
-//					if(random.nextInt(10) < 8) {
-//						cn.commit();
-//					} else {
-//						cn.abort();
-//					}
-//					hasCommand = false;
-//				}
-//        	}
-//        }
-//        if(i == 100) {
-//        	System.out.println("完了");
-//        } else {
-//        	System.out.println(i);
-//        }
-
-//        cn.abort();
-
-//        System.out.println(m);
-
-//        for(i = 0; i < 100; i++) {
-//        	cn.delete(i);
-//        }
-//        cn.commit();
-
-        for(int i = 0; i < 15; i++) {
-        	cn.insert(i, "aa", "2000");
-        }
-        cn.commit();
 
 		//endされるまで処理を回し続ける
     	while(flag) {
@@ -222,7 +260,10 @@ public class Main {
     	} catch (Exception e) {
 			return;
 		}
-        FileIO.fileDelete(REDO_FILENAME);
+        try {
+        	FileIO.clearFile(REDO_FILENAME);
+        } catch(Exception e) {
+        }
     }
 
     private static void infomation() {
@@ -261,4 +302,53 @@ public class Main {
         }
     	return result;
     }
+
+
+//	public static void main(String[] args) {
+//		Random random = new Random();
+//
+//		BPMap<Integer, String> m = new BPMap<>();
+//
+//		//挿入する最大値
+//		int num = 5;
+//
+//		//乱数の重複を確認
+//		boolean[] flag = new boolean[num];
+//
+//		int key = 0;
+//
+//		System.out.println("*insert*******************");
+//		for(int i = 0; i < num; i++) {
+//			do {
+//				key = random.nextInt(num);
+//			} while(flag[key]);
+//			flag[key] = true;
+//			m.insert(key + 1, "value" + key);
+//			System.out.println((i + 1) + "回目");
+//			System.out.println(m);
+//			System.out.println();
+//		}
+//
+//		System.out.println("*select*******************");
+//		for(int i = 0; i < num; i++) {
+//			System.out.println(m.lookup(i + 1));
+//		}
+//		System.out.println();
+//
+//		flag = new boolean[num];
+//
+//		System.out.println("*delete*******************");
+//		for(int i = 0; i < num; i++) {
+//			do {
+//				key = random.nextInt(num);
+//			} while(flag[key]);
+//			flag[key] = true;
+//			System.out.println((key + 1) + "を削除");
+//			m.delete(key + 1);
+////			System.out.println((i + 1) + "を削除");
+////			m.delete(i + 1);
+//			System.out.println(m);
+//			System.out.println();
+//		}
+//	}
 }

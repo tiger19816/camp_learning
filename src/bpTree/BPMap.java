@@ -242,10 +242,11 @@ public class BPMap<Key extends Comparable<? super Key>, Value> implements Serial
 				} else if(compare == 0) {
 					ks.set(i, ns.get(i + 1).deleteMin());
 					ns.get(i + 1).balanceRight(this, i + 1);
+					return;
 				}
-				ns.get(i).delete(key);
-				ns.get(i).balanceRight(this, i);
 			}
+			ns.get(i).delete(key);
+			ns.get(i).balanceRight(this, i);
 		}
 
 		/**
@@ -486,7 +487,7 @@ public class BPMap<Key extends Comparable<? super Key>, Value> implements Serial
 				return;
 			}
 			int i = j - 1;
-			NodeBottom ni = (NodeBottom) t.ns.get(j);
+			NodeBottom ni = (NodeBottom) t.ns.get(i);
 			if(ni.ks.size() == hm - 1) {
 				ni.ks.addAll(nj.ks);
 				ni.vs.addAll(nj.vs);

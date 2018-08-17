@@ -1,7 +1,9 @@
 package bpTree;
 
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.util.zip.CRC32;
 
 /**
  * BPMapにつなぐクラス
@@ -31,29 +33,6 @@ public class Connection {
 	 * @param value2
 	 */
 	public boolean insert(int key, String value1, String value2) {
-//		if(commands.member(key)) {//ライトセットに key があるか
-//			Object command = commands.lookup(key);
-//			if(command instanceof InsertCommand || command instanceof UpdateCommand) {//指定した key に insert が行われていた場合
-//				System.out.println("入力されたキーは既に存在しています");
-//				return false;
-//			} else if(command instanceof DeleteCommand) {//指定した key に delete が行われていた場合
-//				commands.insert(key, new InsertCommand(key, value1, value2));
-//				return true;
-//			}
-//		} else if(m.root != m.getNil()) {//DBにデータが存在しているか
-//			if(m.member(key)) {//DB に key があるか
-//				System.out.println("入力されたキーは既に存在しています");
-//				return false;
-//			} else {
-//				commands.insert(key, new InsertCommand(key, value1, value2));
-//				return true;
-//			}
-//		} else {
-//			commands.insert(key, new InsertCommand(key, value1, value2));
-//			return true;
-//		}
-//		return false;
-
 		if(m.root != m.getNil()) {
 			if(m.member(key)) {
 				if(commands.member(key)) {//ライトセットに key があるか
@@ -160,7 +139,7 @@ public class Connection {
 	/**
 	 * トランザクションのコミットを行う
 	 */
-	public void commit() {
+	public void commit() throws Exception {
 		BPMap<?, ?>.NodeBottom nb = commands.minNode();
 		while(nb != commands.getNil()) {
 			for(int i = 0; i < nb.ks().size(); i++) {
@@ -177,12 +156,43 @@ public class Connection {
 					DeleteCommand dc = (DeleteCommand) command;
 					write("delete", dc.getKey() + "");
 					m.delete(dc.getKey());
-//					System.out.println(m);
 				}
 			}
 			nb = nb.getNext();
 		}
+        FileOutputStream fos = new FileOutputStream(Main.REDO_FILENAME);
+        fos.flush();
+
+		//ファイルを永続化
+		fos.getFD().sync();
+
+		fos.close();
+
 		write("commit");
+		commands = new BPMap<>();
+	}
+
+	/**
+	 * REDO時のトランザクションのコミットを行う
+	 */
+	public void redoCommit() {
+		BPMap<?, ?>.NodeBottom nb = commands.minNode();
+		while(nb != commands.getNil()) {
+			for(int i = 0; i < nb.ks().size(); i++) {
+				Object command = nb.getVs().get(i);
+				if(command instanceof InsertCommand) {
+					InsertCommand ic = (InsertCommand) command;
+					m.insert(ic.getKey(), new Values(ic.getValue1(), ic.getValue2()));
+				} else if(command instanceof UpdateCommand) {
+					UpdateCommand uc = (UpdateCommand) command;
+					m.update(uc.getKey(), new Values(uc.getValue1(), uc.getValue2()));
+				} else if(command instanceof DeleteCommand) {
+					DeleteCommand dc = (DeleteCommand) command;
+					m.delete(dc.getKey());
+				}
+			}
+			nb = nb.getNext();
+		}
 		commands = new BPMap<>();
 	}
 
@@ -190,7 +200,6 @@ public class Connection {
 	 * トランザクションの破棄
 	 */
 	public void abort() {
-		write("abort");
 		commands = new BPMap<>();
 	}
 
@@ -229,13 +238,29 @@ public class Connection {
     	RandomAccessFile randomfile = null;
         try {
             randomfile =  new RandomAccessFile(Main.REDO_FILENAME,"rw");
-            int i;
-            for (i = 0; i < values.length; i++){
-            	//ファイルポインタの設定
-                randomfile.seek((writeCnt + i) * 12);
-       	    	randomfile.writeBytes(values[i] + "\n");
+
+            String str = "";
+            for (int i = 0; i < values.length; i++){
+            	str += values[i] + " ";
             }
-            writeCnt += i;
+            byte[] buffer = str.getBytes();
+
+            CRC32 crc = new CRC32();
+            crc.update(buffer);
+            long checksum = crc.getValue();
+
+            str += "\n";
+
+        	//ファイルポインタの設定
+            randomfile.seek(writeCnt * 48);
+
+            randomfile.writeLong(checksum);
+
+            randomfile.seek(writeCnt * 48 + 8);
+
+   	    	randomfile.writeBytes(str);
+
+   	    	writeCnt++;
         } catch (IOException e) {
         } finally {
         	if(randomfile != null) {
